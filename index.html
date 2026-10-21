@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>C4ISRnova // Tactical Geospatial & Global Weather Dashboard</title>
+  <meta name="description" content="C4ISRnova - Tactical Geospatial Situational Awareness, God's Eye Optical Reconnaissance, and Global Live Weather Station by S SACHATAN. Aim: To bring everything in one place.">
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'tac-bg': '#080b11',
+            'tac-panel': 'rgba(13, 17, 23, 0.88)',
+            'tac-panel-elevated': 'rgba(22, 27, 34, 0.95)',
+            'tac-green': '#00ff66',
+            'tac-amber': '#ffb703',
+            'tac-red': '#ff3344',
+            'tac-cyan': '#00f0ff',
+            'tac-border': 'rgba(0, 255, 102, 0.25)'
+          },
+          fontFamily: {
+            mono: ['"Share Tech Mono"', '"JetBrains Mono"', 'monospace'],
+            display: ['"Orbitron"', '"Share Tech Mono"', 'monospace']
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Leaflet CSS & JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Custom Tactical Stylesheet -->
+  <link rel="stylesheet" href="css/tactical.css" />
+</head>
+<body class="bg-tac-bg text-gray-200 overflow-hidden select-none font-mono">
+
+  <!-- =======================================================================
+       TOP HEADER HUD & MAIN NAVIGATION (PRESENT ACROSS ALL VIEWS)
+       ======================================================================= -->
+  <header class="fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-3 md:px-5 py-2 tactical-panel border-b border-tac-border">
+    <!-- Left: Brand & Mission Title -->
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 flex items-center justify-center border border-emerald-500/50 bg-emerald-950/40 rounded tactical-corners">
+        <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="10" stroke-width="1.8"></circle>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 2v20M2 12h20"></path>
+        </svg>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="text-sm font-bold tracking-widest text-emerald-400 font-display">C4ISRnova</h1>
+          <span class="px-1.5 py-0.2 bg-emerald-950/80 border border-emerald-500/50 text-[10px] text-emerald-300 font-bold rounded">V1.0</span>
+          <span class="hidden sm:inline text-[10px] text-gray-400">by S SACHATAN</span>
+        </div>
+        <div class="text-[9px] text-gray-400 font-mono hidden md:block">
+          AIM: <span class="text-emerald-400 font-bold">TO BRING EVERYTHING IN ONE PLACE</span> &bull; 0 BACKEND SETUP &bull; ZERO API KEYS
+        </div>
+      </div>
+    </div>
+
+    <!-- Center: Main Section Navigation Tabs -->
+    <nav class="flex items-center gap-1 bg-black/75 p-1 border border-emerald-500/40 rounded-lg backdrop-blur-md">
+      <button id="nav-btn-map" onclick="switchMainTab('map')" class="nav-tab-btn active px-3 py-1 text-xs font-bold rounded flex items-center gap-1.5 border border-transparent">
+        <span>🛰️</span>
+        <span class="hidden sm:inline">C4ISR MAP</span>
+      </button>
+      <button id="nav-btn-weather" onclick="switchMainTab('weather')" class="nav-tab-btn px-3 py-1 text-xs font-bold rounded flex items-center gap-1.5 text-gray-400 border border-transparent">
+        <span>🌍</span>
+        <span>GLOBAL WEATHER</span>
+      </button>
+      <button id="nav-btn-developer" onclick="switchMainTab('developer')" class="nav-tab-btn px-3 py-1 text-xs font-bold rounded flex items-center gap-1.5 text-gray-400 border border-transparent">
+        <span>👨‍💻</span>
+        <span class="hidden sm:inline">DEVELOPER</span>
+      </button>
+    </nav>
+
+    <!-- Right: Zulu Clock, Weather Column Drawer Toggle & Audio -->
+    <div class="flex items-center gap-2 md:gap-3">
+      <!-- Quick Weather Column toggle (for side-by-side view on map) -->
+      <button id="btn-toggle-weather-column" onclick="toggleWeatherColumn()" class="px-2.5 py-1 tactical-btn text-xs font-bold rounded text-cyan-400 border-cyan-500/40 hidden lg:flex items-center gap-1" title="Toggle Weather Column Drawer on Map">
+        <span>⛅</span>
+        <span>WEATHER DRAWER</span>
+      </button>
+
+      <!-- Live UTC / Zulu Clock -->
+      <div class="text-right hidden sm:block">
+        <div class="flex items-center justify-end gap-1.5">
+          <span class="text-[10px] text-gray-400 font-semibold">ZULU:</span>
+          <span id="hud-zulu-clock" class="text-xs md:text-sm font-bold text-white tracking-widest font-mono">13:45:00Z</span>
+        </div>
+        <div id="hud-zulu-date" class="text-[9px] md:text-[10px] text-emerald-400/90 font-mono">21-OCT-2026 [DOY 294]</div>
+      </div>
+
+      <!-- SITREP Export Generator Button -->
+      <button onclick="openSitrepModal()" class="px-2 py-1 tactical-btn text-xs font-bold rounded flex items-center gap-1 border-emerald-500/40 text-emerald-400 hover:text-white" title="Generate Tactical SITREP Briefing">
+        <span class="text-xs">📋</span>
+        <span class="hidden md:inline">SITREP</span>
+      </button>
+
+      <!-- Audio Mute Toggle -->
+      <button id="btn-toggle-audio" onclick="toggleMasterAudio()" class="p-1.5 tactical-btn rounded text-emerald-400" title="Toggle Tactical Audio Effects">
+        <svg id="audio-icon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- =======================================================================
+       PAGE VIEW 1: C4ISR TACTICAL MAP & GOD'S EYE RECONNAISSANCE
+       ======================================================================= -->
+  <section id="view-map-section" class="absolute inset-0 w-full h-full pt-14 z-10 overflow-hidden">
+    
+    <!-- MAP CONTAINER & SENSOR FILTER WRAPPER -->
+    <div id="map-container" class="sensor-normal absolute inset-0 w-full h-full z-0 overflow-hidden">
+      <div id="map" class="w-full h-full bg-[#080b11]"></div>
+    </div>
+
+    <!-- SENSOR FILTER OVERLAYS (Scanlines, Vignette, NVG Phosphor) -->
+    <div id="crt-overlay" class="crt-overlay absolute inset-0 pointer-events-none"></div>
+    <div id="vignette-overlay" class="vignette-overlay absolute inset-0 pointer-events-none"></div>
+    <div id="nvg-bloom" class="nvg-bloom-overlay absolute inset-0 pointer-events-none hidden"></div>
+
+    <!-- CENTER RETICLE: "GOD'S EYE" ISR & OPTICAL SENSOR OVERLAY -->
+    <div class="hud-reticle-container pointer-events-none select-none flex items-center justify-center">
+      <div class="relative w-[340px] h-[340px] flex items-center justify-center">
+        
+        <!-- Outer Rotating Azimuth Ring -->
+        <svg class="absolute inset-0 w-full h-full hud-ring-rotate opacity-40" viewBox="0 0 340 340" fill="none">
+          <circle cx="170" cy="170" r="160" stroke="#00ff66" stroke-width="1" stroke-dasharray="2, 6" />
+          <circle cx="170" cy="170" r="140" stroke="#00ff66" stroke-width="0.7" stroke-dasharray="1, 8" />
+          <line x1="170" y1="5" x2="170" y2="18" stroke="#00ff66" stroke-width="2" />
+          <line x1="170" y1="322" x2="170" y2="335" stroke="#00ff66" stroke-width="2" />
+          <line x1="5" y1="170" x2="18" y2="170" stroke="#00ff66" stroke-width="2" />
+          <line x1="322" y1="170" x2="335" y2="170" stroke="#00ff66" stroke-width="2" />
+          <text x="170" y="28" fill="#00ff66" font-size="8" text-anchor="middle" font-family="'Share Tech Mono'">000°</text>
+          <text x="316" y="173" fill="#00ff66" font-size="8" text-anchor="middle" font-family="'Share Tech Mono'">090°</text>
+          <text x="170" y="318" fill="#00ff66" font-size="8" text-anchor="middle" font-family="'Share Tech Mono'">180°</text>
+          <text x="24" y="173" fill="#00ff66" font-size="8" text-anchor="middle" font-family="'Share Tech Mono'">270°</text>
+        </svg>
+
+        <!-- Center Targeting Crosshairs & Range Rings -->
+        <svg class="absolute inset-0 w-full h-full hud-pulse" viewBox="0 0 340 340" fill="none">
+          <path d="M 120 135 L 120 120 L 135 120" stroke="#00ff66" stroke-width="1.8" />
+          <path d="M 220 135 L 220 120 L 205 120" stroke="#00ff66" stroke-width="1.8" />
+          <path d="M 120 205 L 120 220 L 135 220" stroke="#00ff66" stroke-width="1.8" />
+          <path d="M 220 205 L 220 220 L 205 220" stroke="#00ff66" stroke-width="1.8" />
+
+          <line x1="170" y1="60" x2="170" y2="145" stroke="#00ff66" stroke-width="1.2" opacity="0.8" />
+          <line x1="170" y1="195" x2="170" y2="280" stroke="#00ff66" stroke-width="1.2" opacity="0.8" />
+          <line x1="60" y1="170" x2="145" y2="170" stroke="#00ff66" stroke-width="1.2" opacity="0.8" />
+          <line x1="195" y1="170" x2="280" y2="170" stroke="#00ff66" stroke-width="1.2" opacity="0.8" />
+
+          <circle cx="170" cy="170" r="28" stroke="#00ff66" stroke-width="1.2" stroke-dasharray="4, 4" opacity="0.85" />
+          <circle cx="170" cy="170" r="4" stroke="#00ff66" stroke-width="1.5" fill="none" />
+          <circle cx="170" cy="170" r="1.5" fill="#00ff66" />
+        </svg>
+
+        <!-- Center Reticle Telemetry Label -->
+        <div class="absolute -bottom-8 flex flex-col items-center bg-black/75 px-2 py-0.5 border border-emerald-500/30 rounded text-[10px] text-emerald-400 tracking-wider">
+          <span class="flex items-center gap-1 font-bold">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span>OPTICAL RETICLE LOCK</span>
+          </span>
+          <span id="reticle-coords-label" class="text-gray-400 font-mono text-[9px]">35.4212, 77.1095</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- COMMAND SUB-BAR: BASEMAPS, OPTICAL SENSORS & LAYERS -->
+    <div class="absolute top-14 left-0 right-0 z-30 px-3 md:px-5 py-1.5 flex flex-wrap items-center justify-between gap-2 bg-[#0a0e14]/90 border-b border-tac-border/60 backdrop-blur-md text-xs">
+      <div class="flex items-center gap-1">
+        <span class="text-[10px] text-gray-400 font-bold mr-1 tracking-wider">BASEMAP:</span>
+        <button id="btn-basemap-satellite" onclick="switchBasemap('satellite')" class="px-2 py-0.5 tactical-btn active text-[11px] rounded">SATELLITE</button>
+        <button id="btn-basemap-dark" onclick="switchBasemap('dark')" class="px-2 py-0.5 tactical-btn text-[11px] rounded">TACTICAL DARK</button>
+        <button id="btn-basemap-topo" onclick="switchBasemap('topo')" class="px-2 py-0.5 tactical-btn text-[11px] rounded">TOPO TERRAIN</button>
+      </div>
+
+      <div class="flex items-center gap-1">
+        <span class="text-[10px] text-gray-400 font-bold mr-1 tracking-wider">SENSOR:</span>
+        <button id="btn-sensor-normal" onclick="setSensorMode('normal')" class="px-2 py-0.5 tactical-btn active text-[11px] rounded">NORMAL</button>
+        <button id="btn-sensor-nvg" onclick="setSensorMode('nvg')" class="px-2 py-0.5 tactical-btn text-[11px] text-emerald-400 rounded">NVG</button>
+        <button id="btn-sensor-flir-white" onclick="setSensorMode('flir-white')" class="px-2 py-0.5 tactical-btn text-[11px] text-cyan-300 rounded">FLIR WHITE</button>
+        <button id="btn-sensor-flir-black" onclick="setSensorMode('flir-black')" class="px-2 py-0.5 tactical-btn text-[11px] text-amber-300 rounded">FLIR BLACK</button>
+        <button id="btn-toggle-crt" onclick="toggleCrtScanlines()" class="px-2 py-0.5 tactical-btn active text-[11px] text-purple-300 rounded ml-1">CRT SCANLINES</button>
+      </div>
+
+      <div class="flex items-center gap-1.5">
+        <span class="text-[10px] text-gray-400 font-bold mr-1 tracking-wider">LAYERS:</span>
+        <button id="btn-toggle-radar" onclick="RadarEngine.toggleRadar()" class="px-2 py-0.5 tactical-btn text-[11px] text-cyan-400 rounded opacity-60 flex items-center gap-1">
+          <span class="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
+          <span>DOPPLER RADAR</span>
+        </button>
+        <button id="btn-toggle-rings" onclick="toggleRangeRings()" class="px-2 py-0.5 tactical-btn active text-[11px] text-emerald-400 rounded flex items-center gap-1">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+          <span>RANGE RINGS</span>
+        </button>
+        <button id="btn-toggle-tracks" onclick="TacticalTracks.toggleTracks()" class="px-2 py-0.5 tactical-btn active text-[11px] text-amber-400 rounded flex items-center gap-1">
+          <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+          <span>TRACKS</span>
+        </button>
+        <button id="btn-tool-measure" onclick="toggleMeasurementTool()" class="px-2 py-0.5 tactical-btn text-[11px] text-indigo-300 rounded flex items-center gap-1">
+          <span>MEASURE</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- STRATEGIC SECTORS QUICK-JUMP BAR -->
+    <div class="absolute top-[92px] left-0 right-0 z-20 px-4 py-1 flex items-center justify-center pointer-events-none">
+      <div class="flex items-center gap-1 bg-black/85 px-3 py-1 border border-emerald-500/30 rounded-full backdrop-blur-md pointer-events-auto overflow-x-auto max-w-full shadow-2xl">
+        <span class="text-[10px] text-emerald-400 font-bold tracking-wider whitespace-nowrap pl-1 pr-2 flex items-center gap-1">
+          <span>SECTOR JUMP:</span>
+        </span>
+        <button id="btn-sector-siachen" onclick="jumpToSector('siachen')" class="px-2.5 py-0.5 tactical-btn active text-[11px] rounded-full whitespace-nowrap">SIACHEN GLACIER</button>
+        <button id="btn-sector-malacca" onclick="jumpToSector('malacca')" class="px-2.5 py-0.5 tactical-btn text-[11px] rounded-full whitespace-nowrap">STRAIT OF MALACCA</button>
+        <button id="btn-sector-galwan" onclick="jumpToSector('galwan')" class="px-2.5 py-0.5 tactical-btn text-[11px] rounded-full whitespace-nowrap">GALWAN VALLEY</button>
+        <button id="btn-sector-suez" onclick="jumpToSector('suez')" class="px-2.5 py-0.5 tactical-btn text-[11px] rounded-full whitespace-nowrap">SUEZ CANAL</button>
+        <button id="btn-sector-andaman" onclick="jumpToSector('andaman')" class="px-2.5 py-0.5 tactical-btn text-[11px] rounded-full whitespace-nowrap">ANDAMAN STRAIT</button>
+        <button id="btn-sector-taiwan" onclick="jumpToSector('taiwan')" class="px-2.5 py-0.5 tactical-btn text-[11px] rounded-full whitespace-nowrap">TAIWAN STRAIT</button>
+        <button id="btn-sector-hormuz" onclick="jumpToSector('hormuz')" class="px-2.5 py-0.5 tactical-btn text-[11px] rounded-full whitespace-nowrap">STRAIT OF HORMUZ</button>
+        <button id="btn-sector-mandeb" onclick="jumpToSector('mandeb')" class="px-2.5 py-0.5 tactical-btn text-[11px] rounded-full whitespace-nowrap">BAB-EL-MANDEB</button>
+      </div>
+    </div>
+
+    <!-- MEASUREMENT ACTIVE BANNER -->
+    <div id="measurement-banner" class="absolute top-[136px] left-1/2 -translate-x-1/2 z-30 px-4 py-1 bg-cyan-950/90 border border-cyan-400 text-cyan-300 text-xs font-mono font-bold rounded shadow-xl hidden">
+      CLICK ANY 2 POINTS ON MAP TO COMPUTE GEODESIC RANGE & AZIMUTH BEARING
+    </div>
+
+    <!-- LEFT HUD PANEL: LIVE STRATEGIC METOC TELEMETRY -->
+    <div class="absolute top-36 left-4 z-20 w-80 max-h-[calc(100vh-175px)] flex flex-col gap-2.5 pointer-events-auto">
+      <div class="tactical-panel tactical-corners rounded p-3.5 space-y-3 overflow-y-auto max-h-full">
+        
+        <div class="flex items-center justify-between border-b border-tac-border pb-2">
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 led-glow-green"></span>
+            <h2 class="text-xs font-bold tracking-wider text-emerald-400 font-display">SECTOR METOC</h2>
+          </div>
+          <span class="text-[9px] px-1.5 py-0.5 bg-black/60 border border-emerald-500/30 text-gray-300 rounded">LIVE SENSOR</span>
+        </div>
+
+        <div class="bg-black/60 p-2 border border-emerald-500/20 rounded">
+          <div class="flex items-center justify-between text-[10px] text-gray-400">
+            <span>TARGET SECTOR:</span>
+            <span id="metoc-target-label" class="text-white font-bold tracking-wider">SIACHEN GLACIER</span>
+          </div>
+          <div id="metoc-target-coords" class="text-xs font-mono text-emerald-400 font-bold mt-0.5">35.4212°N  077.1095°E</div>
+        </div>
+
+        <button id="btn-scan-reticle" onclick="scanReticleSector()" class="w-full py-2 btn-scan-sector text-emerald-300 font-bold text-xs rounded tracking-wider flex items-center justify-center gap-2">
+          <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-width="2"></circle><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 2v4m0 12v4m10-10h-4M6 12H2"></path></svg>
+          <span>SCAN TARGET SECTOR</span>
+        </button>
+
+        <!-- CAS / UAV VIABILITY CARD -->
+        <div class="p-2.5 bg-black/70 border border-emerald-500/30 rounded space-y-1.5">
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] font-bold text-gray-400 tracking-wider">CAS / UAV READINESS:</span>
+            <div id="tactical-readiness-badge" class="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-bold rounded border text-emerald-400 border-emerald-500/60 bg-emerald-950/40 led-glow-green">
+              <span id="tactical-readiness-led" class="w-1.5 h-1.5 rounded-full bg-emerald-400 led-glow-green"></span>
+              <span id="tactical-readiness-code">OPTIMAL // CLEAR</span>
+            </div>
+          </div>
+          <div id="tactical-readiness-desc" class="text-[10px] text-gray-300 leading-snug">
+            Atmospheric parameters within optimal operating envelope for tactical air & optical reconnaissance.
+          </div>
+        </div>
+
+        <!-- TELEMETRY GRID -->
+        <div class="grid grid-cols-2 gap-2 text-xs">
+          <div class="p-2 bg-black/60 border border-emerald-500/20 rounded">
+            <div class="text-[10px] text-gray-400">TEMPERATURE</div>
+            <div id="metoc-temp-val" class="text-sm font-bold text-white mt-0.5">-21.5°C</div>
+            <div id="metoc-temp-sub" class="text-[9px] text-gray-400">-6.7°F</div>
+          </div>
+          <div class="p-2 bg-black/60 border border-emerald-500/20 rounded">
+            <div class="text-[10px] text-gray-400">BAROMETRIC PRESS</div>
+            <div id="metoc-pressure-val" class="text-sm font-bold text-cyan-400 mt-0.5">570.6 hPa</div>
+            <div id="metoc-pressure-sub" class="text-[9px] text-gray-400">16.85 inHg</div>
+          </div>
+          <div class="p-2 bg-black/60 border border-emerald-500/20 rounded">
+            <div class="text-[10px] text-gray-400">CLOUD CEILING</div>
+            <div id="metoc-cloud-val" class="text-sm font-bold text-amber-300 mt-0.5">64%</div>
+            <div id="metoc-cloud-sub" class="text-[9px] text-gray-400">BKN</div>
+          </div>
+          <div class="p-2 bg-black/60 border border-emerald-500/20 rounded">
+            <div class="text-[10px] text-gray-400">VISIBILITY</div>
+            <div id="metoc-vis-val" class="text-sm font-bold text-white mt-0.5">0.4 km</div>
+            <div id="metoc-vis-sub" class="text-[9px] text-gray-400">0.2 NM</div>
+          </div>
+        </div>
+
+        <!-- DYNAMIC WIND VECTOR & COMPASS DIAL -->
+        <div class="p-2.5 bg-black/70 border border-emerald-500/30 rounded flex items-center gap-3">
+          <div class="relative w-16 h-16 flex items-center justify-center flex-shrink-0">
+            <svg class="w-full h-full" viewBox="0 0 100 100">
+              <circle cx="50" cy="50" r="46" stroke="#00ff66" stroke-width="1.5" stroke-dasharray="2, 4" fill="none" opacity="0.6"/>
+              <text x="50" y="14" fill="#00ff66" font-size="10" font-weight="bold" text-anchor="middle" font-family="'Share Tech Mono'">N</text>
+              <text x="88" y="54" fill="#888" font-size="8" text-anchor="middle" font-family="'Share Tech Mono'">E</text>
+              <text x="50" y="92" fill="#888" font-size="8" text-anchor="middle" font-family="'Share Tech Mono'">S</text>
+              <text x="12" y="54" fill="#888" font-size="8" text-anchor="middle" font-family="'Share Tech Mono'">W</text>
+              <g id="wind-compass-needle" class="compass-needle" style="transform: rotate(323deg);">
+                <polygon points="50,18 45,50 55,50" fill="#ffb703" />
+                <polygon points="50,82 46,50 54,50" fill="#444" />
+                <circle cx="50" cy="50" r="4" fill="#00ff66" />
+              </g>
+            </svg>
+          </div>
+          <div class="flex-1">
+            <div class="text-[10px] text-gray-400 font-bold">WIND VECTOR:</div>
+            <div id="metoc-wind-val" class="text-sm font-bold text-amber-400 font-mono mt-0.5">3.7 KTS</div>
+            <div id="metoc-wind-sub" class="text-[10px] text-gray-300 font-mono">323° NW (GUSTS 11.7 KTS)</div>
+            <div class="text-[9px] text-gray-500 mt-1">HUMIDITY: <span id="metoc-hum-val" class="text-gray-300 font-bold">84%</span></div>
+          </div>
+        </div>
+
+        <div id="metoc-status-text" class="text-[10px] text-gray-400 text-center font-mono pt-1 border-t border-tac-border/40">
+          <span class="text-emerald-400 font-bold">METOC TELEMETRY LOCKED</span> &bull; 0 DELAY
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT HUD PANEL: TACTICAL RADAR CONTROLS & SEARCH -->
+    <div class="absolute top-36 right-4 z-20 w-80 max-h-[calc(100vh-175px)] flex flex-col gap-2.5 pointer-events-auto">
+      <div class="tactical-panel tactical-corners rounded p-3.5 space-y-3 overflow-y-auto max-h-full">
+        
+        <div class="flex items-center justify-between border-b border-tac-border pb-2">
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-cyan-400 led-glow-cyan"></span>
+            <h2 class="text-xs font-bold tracking-wider text-cyan-400 font-display">TACTICAL RADAR OPS</h2>
+          </div>
+          <span class="text-[9px] px-1.5 py-0.5 bg-black/60 border border-cyan-500/30 text-cyan-300 rounded">RAINVIEWER</span>
+        </div>
+
+        <!-- SEARCH -->
+        <div class="space-y-1">
+          <label class="text-[10px] text-gray-400 font-bold">GLOBAL TARGET SEARCH:</label>
+          <div class="flex items-center gap-1">
+            <input id="search-input" type="text" placeholder="City or Lat, Lon..." class="flex-1 bg-black/80 border border-emerald-500/30 px-2 py-1 text-xs text-white rounded font-mono focus:outline-none focus:border-emerald-400" />
+            <button onclick="executeSearch(document.getElementById('search-input').value)" class="px-2.5 py-1 tactical-btn text-xs font-bold text-emerald-400 rounded">JUMP</button>
+          </div>
+        </div>
+
+        <!-- DOPPLER RADAR -->
+        <div class="p-2.5 bg-black/70 border border-cyan-500/30 rounded space-y-2">
+          <div class="flex items-center justify-between text-xs">
+            <span class="text-[10px] font-bold text-cyan-400">DOPPLER PRECIPITATION:</span>
+            <span id="radar-frame-index" class="text-[10px] font-mono text-gray-400">[13/13]</span>
+          </div>
+
+          <div class="flex items-center justify-between text-xs">
+            <span class="text-gray-400">FRAME TIME:</span>
+            <span id="radar-timestamp-val" class="text-white font-bold font-mono">LIVE / CURRENT</span>
+          </div>
+
+          <div class="flex items-center gap-1.5 pt-1">
+            <button onclick="RadarEngine.stepFrame(-1)" class="flex-1 py-1 tactical-btn text-[10px] rounded text-gray-300">&larr; BACK</button>
+            <button id="btn-radar-play" onclick="RadarEngine.togglePlayback()" class="flex-1 py-1 tactical-btn text-[10px] text-cyan-400 font-bold rounded">&#9654; PLAY LOOP</button>
+            <button onclick="RadarEngine.stepFrame(1)" class="flex-1 py-1 tactical-btn text-[10px] rounded text-gray-300">FWD &rarr;</button>
+          </div>
+
+          <div class="pt-1 space-y-1">
+            <div class="flex items-center justify-between text-[10px] text-gray-400">
+              <span>RADAR OPACITY:</span>
+              <span id="radar-opacity-val" class="text-cyan-400 font-bold font-mono">65%</span>
+            </div>
+            <input type="range" min="0.1" max="1.0" step="0.05" value="0.65" oninput="RadarEngine.setOpacity(parseFloat(this.value))" class="w-full accent-cyan-400 cursor-pointer" />
+          </div>
+
+          <div class="pt-1">
+            <div class="text-[9px] text-gray-500 mb-1">PRECIPITATION (dBZ):</div>
+            <div class="h-2 w-full rounded flex overflow-hidden">
+              <div class="flex-1 bg-cyan-700"></div>
+              <div class="flex-1 bg-cyan-400"></div>
+              <div class="flex-1 bg-green-500"></div>
+              <div class="flex-1 bg-yellow-400"></div>
+              <div class="flex-1 bg-red-500"></div>
+              <div class="flex-1 bg-purple-600"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- THREAT RINGS -->
+        <div class="p-2.5 bg-black/70 border border-emerald-500/30 rounded space-y-1.5">
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] font-bold text-emerald-400">THREAT ENVELOPE:</span>
+            <span class="text-[9px] text-gray-400">25 / 50 / 100 KM</span>
+          </div>
+          <div class="pt-1 flex items-center justify-between text-[10px]">
+            <span class="text-gray-400">LOCK RINGS TO:</span>
+            <button onclick="rangeRingsLockReticle = !rangeRingsLockReticle; this.innerText = rangeRingsLockReticle ? 'CENTER RETICLE' : 'TARGET PIN'; renderRangeRings(rangeRingsLockReticle ? map.getCenter() : (targetMarker ? targetMarker.getLatLng() : map.getCenter()));" class="px-2 py-0.5 tactical-btn text-[10px] text-emerald-400 font-bold rounded">CENTER RETICLE</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ON-MAP SLIDING WEATHER COLUMN DRAWER -->
+    <div id="weather-side-column" class="absolute top-36 right-4 lg:right-88 z-30 w-84 bg-tac-panel-elevated border border-emerald-500/40 rounded-lg p-3 shadow-2xl backdrop-blur-xl hidden max-h-[calc(100vh-175px)] overflow-y-auto space-y-2.5">
+      <div class="flex items-center justify-between border-b border-tac-border pb-1.5">
+        <div class="flex items-center gap-1.5 text-xs font-bold text-emerald-400">
+          <span>🌍</span>
+          <span>QUICK WEATHER COLUMN</span>
+        </div>
+        <button onclick="toggleWeatherColumn()" class="text-gray-400 hover:text-white text-xs">&times; CLOSE</button>
+      </div>
+
+      <div class="space-y-1">
+        <button onclick="WeatherApp.autoDetectLocation()" class="w-full py-1.5 tactical-btn text-[11px] text-emerald-300 font-bold rounded flex items-center justify-center gap-1.5">
+          <span>📍</span>
+          <span>AUTO-DETECT MY LOCATION</span>
+        </button>
+      </div>
+
+      <!-- Quick Country Buttons -->
+      <div class="text-[10px] text-gray-400 font-bold">GLOBAL COUNTRY PRESETS:</div>
+      <div class="flex flex-wrap gap-1">
+        <button onclick="WeatherApp.fetchCityWeather({ name: 'New Delhi', country: 'India', lat: 28.6139, lon: 77.2090 })" class="px-2 py-0.5 tactical-btn text-[10px] rounded">🇮🇳 Delhi</button>
+        <button onclick="WeatherApp.fetchCityWeather({ name: 'Mumbai', country: 'India', lat: 19.0760, lon: 72.8777 })" class="px-2 py-0.5 tactical-btn text-[10px] rounded">🇮🇳 Mumbai</button>
+        <button onclick="WeatherApp.fetchCityWeather({ name: 'Washington D.C.', country: 'USA', lat: 38.9072, lon: -77.0369 })" class="px-2 py-0.5 tactical-btn text-[10px] rounded">🇺🇸 Washington</button>
+        <button onclick="WeatherApp.fetchCityWeather({ name: 'London', country: 'UK', lat: 51.5074, lon: -0.1278 })" class="px-2 py-0.5 tactical-btn text-[10px] rounded">🇬🇧 London</button>
+        <button onclick="WeatherApp.fetchCityWeather({ name: 'Tokyo', country: 'Japan', lat: 35.6762, lon: 139.6503 })" class="px-2 py-0.5 tactical-btn text-[10px] rounded">🇯🇵 Tokyo</button>
+        <button onclick="WeatherApp.fetchCityWeather({ name: 'Paris', country: 'France', lat: 48.8566, lon: 2.3522 })" class="px-2 py-0.5 tactical-btn text-[10px] rounded">🇫🇷 Paris</button>
+        <button onclick="WeatherApp.fetchCityWeather({ name: 'Dubai', country: 'UAE', lat: 25.2048, lon: 55.2708 })" class="px-2 py-0.5 tactical-btn text-[10px] rounded">🇦🇪 Dubai</button>
+      </div>
+
+      <div class="pt-1 border-t border-tac-border/40 text-center">
+        <button onclick="switchMainTab('weather')" class="text-xs text-cyan-400 hover:underline font-bold">
+          &rarr; OPEN FULL GLOBAL WEATHER STATION
+        </button>
+      </div>
+    </div>
+
+    <!-- BOTTOM TACTICAL STATUS FOOTER BAR -->
+    <footer class="absolute bottom-0 left-0 right-0 z-20 px-4 py-1.5 tactical-panel border-t border-tac-border flex items-center justify-between text-[11px] text-gray-400">
+      <div class="flex items-center gap-3">
+        <div class="flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 led-glow-green animate-pulse"></span>
+          <span class="text-emerald-400 font-bold font-mono">C4ISRnova LINK ACTIVE</span>
+        </div>
+        <span class="text-gray-600 hidden md:inline">|</span>
+        <span class="hidden md:inline font-mono">BASEMAP: <span id="hud-basemap-label" class="text-white font-bold">ESRI WORLD IMAGERY</span></span>
+        <span class="text-gray-600 hidden lg:inline">|</span>
+        <span class="hidden lg:inline font-mono">SENSOR: <span id="hud-sensor-mode-label" class="text-emerald-300 font-bold">OPTICAL (COLOR)</span></span>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button onclick="map.zoomIn(); TacticalAudio.playClick();" class="px-2 py-0.5 tactical-btn rounded font-bold hover:text-white" title="Tactical Zoom In">+</button>
+        <button onclick="map.zoomOut(); TacticalAudio.playClick();" class="px-2 py-0.5 tactical-btn rounded font-bold hover:text-white" title="Tactical Zoom Out">&minus;</button>
+        <button onclick="jumpToSector('siachen')" class="px-2 py-0.5 tactical-btn rounded text-[10px] text-emerald-400 hover:text-white font-bold" title="Reset to Primary HQ Sector">RESET HQ</button>
+      </div>
+    </footer>
+  </section>
+
+  <!-- =======================================================================
+       PAGE VIEW 2: CLEAN GLOBAL WEATHER APP (DEDICATED MULTI-COUNTRY COLUMN)
+       ======================================================================= -->
+  <section id="view-weather-section" class="absolute inset-0 w-full h-full pt-16 z-20 overflow-y-auto hidden bg-gradient-to-b from-[#080b11] via-[#0d131f] to-[#080b11] p-3 md:p-6">
+    <div class="max-w-5xl mx-auto space-y-4 pb-12">
+      
+      <!-- Weather Top Bar: Search, Auto-Detect & Language Selector -->
+      <div class="tactical-panel tactical-corners rounded-xl p-4 flex flex-wrap items-center justify-between gap-3 shadow-xl">
+        <div class="flex items-center gap-2">
+          <span class="text-2xl">🌍</span>
+          <div>
+            <h2 id="lbl-weather-app-name" class="text-sm md:text-base font-bold text-emerald-400 font-display tracking-wider">GLOBAL WEATHER STATION</h2>
+            <div class="text-[10px] text-gray-400">LIVE SATELLITE METEOROLOGY ACROSS 195+ COUNTRIES &bull; REAL-TIME OPEN-METEO</div>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          <!-- Multi-Language Selector Dropdown -->
+          <div class="flex items-center gap-1.5 bg-black/60 px-2.5 py-1.5 border border-emerald-500/40 rounded-lg">
+            <span class="text-xs">🌐</span>
+            <label for="weather-language-select" class="sr-only">Choose Language</label>
+            <select id="weather-language-select" onchange="WeatherApp.setLanguage(this.value)" class="bg-transparent text-xs text-emerald-400 font-bold focus:outline-none cursor-pointer">
+              <option value="en" class="bg-gray-900 text-white">🇬🇧 English</option>
+              <option value="es" class="bg-gray-900 text-white">🇪🇸 Español</option>
+              <option value="fr" class="bg-gray-900 text-white">🇫🇷 Français</option>
+              <option value="de" class="bg-gray-900 text-white">🇩🇪 Deutsch</option>
+              <option value="hi" class="bg-gray-900 text-white">🇮🇳 हिन्दी</option>
+              <option value="ja" class="bg-gray-900 text-white">🇯🇵 日本語</option>
+              <option value="ru" class="bg-gray-900 text-white">🇷🇺 Русский</option>
+              <option value="ar" class="bg-gray-900 text-white">🇸🇦 العربية</option>
+              <option value="zh" class="bg-gray-900 text-white">🇨🇳 中文</option>
+              <option value="pt" class="bg-gray-900 text-white">🇧🇷 Português</option>
+            </select>
+          </div>
+
+          <!-- Auto-Detect Location Button -->
+          <button id="btn-weather-autodetect" onclick="WeatherApp.autoDetectLocation()" class="px-3 py-1.5 btn-scan-sector text-emerald-300 font-bold text-xs rounded-lg flex items-center gap-1.5">
+            <span>📍</span>
+            <span>AUTO-DETECT MY LOCATION</span>
+          </button>
+
+          <!-- Unit Toggle (°C / °F) -->
+          <button id="btn-weather-unit" onclick="WeatherApp.toggleUnit()" class="px-3 py-1.5 tactical-btn text-xs font-bold rounded-lg text-amber-300">
+            °C
+          </button>
+        </div>
+      </div>
+
+      <!-- City Search Bar with Instant Autocomplete Dropdown -->
+      <div class="relative">
+        <div class="flex items-center gap-2 bg-black/70 border border-emerald-500/40 rounded-xl px-3 py-2 shadow-inner focus-within:border-emerald-400">
+          <span class="text-gray-400 text-sm">🔍</span>
+          <input id="weather-search-input" type="text" placeholder="Search city, capital, or country (e.g. London, Tokyo, Paris)..." class="w-full bg-transparent text-sm text-white placeholder-gray-500 focus:outline-none font-mono" />
+        </div>
+        <!-- Autocomplete Suggestions Dropdown -->
+        <div id="weather-search-results" class="absolute top-12 left-0 right-0 z-50 bg-[#0d131f] border border-emerald-500/50 rounded-lg shadow-2xl overflow-hidden hidden max-h-60 overflow-y-auto"></div>
+      </div>
+
+      <!-- Global Country Presets (Quick Picks) -->
+      <div class="space-y-1.5">
+        <div id="lbl-weather-quick-picks" class="text-xs font-bold text-gray-400 tracking-wider">GLOBAL PRESETS:</div>
+        <div id="weather-presets-container" class="flex items-center gap-1.5 overflow-x-auto pb-1 weather-scroll-strip"></div>
+      </div>
+
+      <!-- Loading Banner -->
+      <div id="weather-loading" class="hidden text-center py-2 text-xs font-bold text-emerald-400 animate-pulse">
+        ACQUIRING SATELLITE WEATHER TELEMETRY...
+      </div>
+
+      <!-- Main Clean Weather Cards Grid -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        
+        <!-- Primary Weather Card (Left Column, 2 Spans) -->
+        <div class="md:col-span-2 tactical-panel tactical-corners rounded-xl p-5 space-y-4 shadow-xl">
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 id="weather-city-name" class="text-2xl md:text-3xl font-bold text-white tracking-wide font-display">New Delhi, India</h3>
+              <div id="weather-city-coords" class="text-xs text-gray-400 font-mono mt-0.5">28.61°N, 77.20°E</div>
+            </div>
+            <!-- View on C4ISR Satellite Map CTA -->
+            <button onclick="WeatherApp.viewCityOnMap()" class="px-3 py-1.5 tactical-btn text-xs font-bold text-emerald-400 rounded-lg flex items-center gap-1.5">
+              <span>🛰️</span>
+              <span id="lbl-weather-view-map">VIEW IN C4ISR MAP</span>
+            </button>
+          </div>
+
+          <!-- Hero Temperature & Condition Display -->
+          <div class="flex items-center justify-between py-2">
+            <div>
+              <div id="weather-temp-current" class="text-5xl md:text-6xl font-extrabold text-white font-mono tracking-tight">24°C</div>
+              <div id="weather-condition-text" class="text-lg font-bold text-emerald-400 mt-1">Mainly Clear</div>
+              <div class="flex items-center gap-3 text-xs text-gray-400 mt-1 font-mono">
+                <span id="weather-feels-like">Feels like 25°C</span>
+                <span>&bull;</span>
+                <span id="weather-high-low" class="text-gray-300 font-bold">H: 28°C | L: 18°C</span>
+              </div>
+            </div>
+            <div id="weather-condition-icon" class="flex-shrink-0 scale-125 pr-4"></div>
+          </div>
+
+          <!-- 6 Key Metrics Clean Cards -->
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-2">
+            <div class="p-3 bg-black/50 border border-emerald-500/20 rounded-lg">
+              <div id="lbl-metric-humidity-title" class="text-[10px] text-gray-400 font-bold">HUMIDITY</div>
+              <div id="weather-metric-humidity" class="text-base font-bold text-white font-mono mt-0.5">48%</div>
+            </div>
+            <div class="p-3 bg-black/50 border border-emerald-500/20 rounded-lg">
+              <div id="lbl-metric-wind-title" class="text-[10px] text-gray-400 font-bold">WIND</div>
+              <div id="weather-metric-wind" class="text-base font-bold text-amber-400 font-mono mt-0.5">12 km/h</div>
+            </div>
+            <div class="p-3 bg-black/50 border border-emerald-500/20 rounded-lg">
+              <div id="lbl-metric-pressure-title" class="text-[10px] text-gray-400 font-bold">BAROMETER</div>
+              <div id="weather-metric-pressure" class="text-base font-bold text-cyan-400 font-mono mt-0.5">1012 hPa</div>
+            </div>
+            <div class="p-3 bg-black/50 border border-emerald-500/20 rounded-lg">
+              <div id="lbl-metric-uv-title" class="text-[10px] text-gray-400 font-bold">UV INDEX</div>
+              <div id="weather-metric-uv" class="text-base font-bold text-yellow-300 font-mono mt-0.5">5.2 (Moderate)</div>
+            </div>
+            <div class="p-3 bg-black/50 border border-emerald-500/20 rounded-lg">
+              <div id="lbl-metric-sunrise-title" class="text-[10px] text-gray-400 font-bold">SUNRISE</div>
+              <div id="weather-metric-sunrise" class="text-base font-bold text-white font-mono mt-0.5">06:24</div>
+            </div>
+            <div class="p-3 bg-black/50 border border-emerald-500/20 rounded-lg">
+              <div id="lbl-metric-sunset-title" class="text-[10px] text-gray-400 font-bold">SUNSET</div>
+              <div id="weather-metric-sunset" class="text-base font-bold text-white font-mono mt-0.5">17:48</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 7-Day Forecast (Right Column) -->
+        <div class="tactical-panel tactical-corners rounded-xl p-4 space-y-2.5 shadow-xl flex flex-col justify-between">
+          <div class="flex items-center justify-between border-b border-tac-border pb-1.5">
+            <h4 id="lbl-weather-weekly" class="text-xs font-bold text-emerald-400 tracking-wider">7-DAY STRATEGIC FORECAST</h4>
+            <span class="text-[9px] text-gray-500 font-mono">TREND</span>
+          </div>
+          <div id="weather-weekly-container" class="space-y-1.5 flex-1"></div>
+        </div>
+      </div>
+
+      <!-- 24-Hour Hourly Forecast Strip -->
+      <div class="tactical-panel tactical-corners rounded-xl p-4 space-y-2.5 shadow-xl">
+        <div class="flex items-center justify-between border-b border-tac-border pb-1.5">
+          <h4 id="lbl-weather-hourly" class="text-xs font-bold text-cyan-400 tracking-wider">24-HOUR HOURLY FORECAST</h4>
+          <span class="text-[10px] text-gray-500 font-mono">SCROLL &rarr;</span>
+        </div>
+        <div id="weather-hourly-container" class="flex items-center gap-2 overflow-x-auto pb-2 weather-scroll-strip"></div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- =======================================================================
+       PAGE VIEW 3: DEVELOPER DOSSIER & ARCHITECTURAL BRIEFING
+       ======================================================================= -->
+  <section id="view-developer-section" class="absolute inset-0 w-full h-full pt-16 z-20 overflow-y-auto hidden bg-gradient-to-b from-[#080b11] via-[#0d131f] to-[#080b11] p-3 md:p-8">
+    <div class="max-w-4xl mx-auto space-y-6 pb-16">
+      
+      <!-- Developer Dossier Hero Banner -->
+      <div class="tactical-panel tactical-corners rounded-2xl p-6 md:p-8 dev-card-glow border border-emerald-500/50 space-y-6">
+        
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-tac-border pb-6">
+          <div class="flex items-center gap-4">
+            <!-- Monogram Avatar Badge -->
+            <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500/30 via-black to-emerald-950 border-2 border-emerald-400 flex items-center justify-center font-display font-black text-2xl text-emerald-300 shadow-[0_0_20px_rgba(0,255,102,0.4)]">
+              SS
+            </div>
+            <div>
+              <div class="text-[10px] px-2 py-0.5 bg-emerald-950 border border-emerald-500/40 text-emerald-300 font-bold rounded inline-block mb-1">
+                LEAD ARCHITECT &amp; DEVELOPER
+              </div>
+              <h2 class="text-2xl md:text-3xl font-extrabold text-white tracking-wide font-display">S SACHATAN</h2>
+              <div class="text-xs text-gray-400 font-mono">PROJECT: <span class="text-emerald-400 font-bold">C4ISRnova</span></div>
+            </div>
+          </div>
+
+          <!-- Direct Email Contact Buttons -->
+          <div class="flex flex-col sm:items-end gap-2">
+            <div class="flex items-center gap-2">
+              <a href="mailto:ssachatan26@gmail.com" class="px-3.5 py-2 btn-scan-sector text-xs font-bold text-emerald-300 rounded-lg flex items-center gap-2 hover:text-white transition-all">
+                <span>✉️</span>
+                <span>ssachatan26@gmail.com</span>
+              </a>
+              <button id="btn-copy-email" onclick="copyEmailToClipboard('ssachatan26@gmail.com')" class="px-3 py-2 tactical-btn text-xs font-bold text-gray-300 hover:text-white rounded-lg" title="Copy Email">
+                <span>COPY</span>
+              </button>
+            </div>
+            <div class="text-[10px] text-gray-500 font-mono">OFFICIAL COMMUNICATION CHANNEL</div>
+          </div>
+        </div>
+
+        <!-- Project Aim & Vision Statement -->
+        <div class="bg-black/60 p-5 rounded-xl border border-emerald-500/30 space-y-2">
+          <div class="flex items-center gap-2 text-xs font-bold text-amber-400 font-display">
+            <span>🎯</span>
+            <span>CORE PROJECT AIM &amp; MISSION</span>
+          </div>
+          <blockquote class="text-lg md:text-xl font-bold text-white tracking-wide font-mono italic pl-2 border-l-4 border-emerald-400">
+            "To bring everything in one place"
+          </blockquote>
+          <p class="text-xs text-gray-300 leading-relaxed font-mono pt-1">
+            <strong>C4ISRnova</strong> was envisioned and built by <strong>S SACHATAN</strong> to eliminate the fragmentation of tactical operations. Instead of switching between disconnected satellite portals, weather stations, Doppler radars, and unit tracking feeds, C4ISRnova integrates optical reconnaissance, global live meteorology across every country, and command-grade situational awareness into a single zero-dependency cockpit.
+          </p>
+        </div>
+
+        <!-- Architecture & Specifications Grid -->
+        <div class="space-y-3">
+          <h3 class="text-xs font-bold text-emerald-400 font-display tracking-wider">SYSTEM SPECIFICATIONS &amp; PILLARS</h3>
+          
+          <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-xs font-mono">
+            <div class="p-3 bg-black/40 border border-emerald-500/20 rounded-lg space-y-1">
+              <div class="text-emerald-400 font-bold">01 // ZERO BACKEND SETUP</div>
+              <div class="text-gray-400 text-[11px]">100% serverless, zero API keys required, zero rate-limit roadblocks.</div>
+            </div>
+
+            <div class="p-3 bg-black/40 border border-emerald-500/20 rounded-lg space-y-1">
+              <div class="text-cyan-400 font-bold">02 // OMNIPRESENT GEOSPATIAL</div>
+              <div class="text-gray-400 text-[11px]">100vw x 100vh Leaflet engine with ESRI satellite, Carto Dark, and Topo basemaps.</div>
+            </div>
+
+            <div class="p-3 bg-black/40 border border-emerald-500/20 rounded-lg space-y-1">
+              <div class="text-amber-400 font-bold">03 // OPTICAL SENSOR FILTERS</div>
+              <div class="text-gray-400 text-[11px]">Pure CSS/SVG Gen-3 NVG phosphor green, FLIR white-hot, and CRT scanlines.</div>
+            </div>
+
+            <div class="p-3 bg-black/40 border border-emerald-500/20 rounded-lg space-y-1">
+              <div class="text-emerald-400 font-bold">04 // 195+ COUNTRIES WEATHER</div>
+              <div class="text-gray-400 text-[11px]">Live Open-Meteo telemetry with multi-language translation in 10 languages.</div>
+            </div>
+
+            <div class="p-3 bg-black/40 border border-emerald-500/20 rounded-lg space-y-1">
+              <div class="text-cyan-400 font-bold">05 // DOPPLER RADAR OVERLAY</div>
+              <div class="text-gray-400 text-[11px]">Real-time RainViewer precipitation radar frames with animation playback.</div>
+            </div>
+
+            <div class="p-3 bg-black/40 border border-emerald-500/20 rounded-lg space-y-1">
+              <div class="text-amber-400 font-bold">06 // LOCATION GUESSER</div>
+              <div class="text-gray-400 text-[11px]">Autonomous GPS &amp; IP geolocation fallback for instant local weather detection.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Interactive Direct Dispatch Console -->
+        <div class="bg-black/70 p-5 rounded-xl border border-tac-border space-y-3">
+          <div class="flex items-center justify-between">
+            <h4 class="text-xs font-bold text-white font-display flex items-center gap-2">
+              <span>📡</span>
+              <span>DIRECT TRANSMISSION CONSOLE // S SACHATAN</span>
+            </h4>
+            <span class="text-[9px] text-emerald-400 font-mono">STATUS: ENCRYPTED READY</span>
+          </div>
+
+          <form id="feedback-form" onsubmit="sendTransmissionMock(event)" class="space-y-2.5">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <input type="text" required placeholder="Your Name / Callsign..." class="bg-black/90 border border-emerald-500/30 px-3 py-2 text-xs text-white rounded font-mono focus:outline-none focus:border-emerald-400" />
+              <input type="email" required placeholder="Your Contact Email..." class="bg-black/90 border border-emerald-500/30 px-3 py-2 text-xs text-white rounded font-mono focus:outline-none focus:border-emerald-400" />
+            </div>
+            <textarea rows="3" required placeholder="Type operational feedback, feature request, or inquiry for S SACHATAN..." class="w-full bg-black/90 border border-emerald-500/30 px-3 py-2 text-xs text-white rounded font-mono focus:outline-none focus:border-emerald-400 resize-none"></textarea>
+            <div class="flex items-center justify-between pt-1">
+              <span id="transmission-status" class="text-[10px] text-emerald-400 font-bold hidden animate-pulse">TRANSMISSION SENT TO SSACHATAN26@GMAIL.COM</span>
+              <button type="submit" class="px-4 py-2 btn-scan-sector text-xs font-bold text-emerald-300 rounded-lg flex items-center gap-1.5 ml-auto">
+                <span>SEND TRANSMISSION</span>
+                <span>&rarr;</span>
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Cryptographic System Stamp -->
+        <div class="flex flex-wrap items-center justify-between text-[9px] text-gray-500 font-mono pt-3 border-t border-tac-border/40">
+          <div>SYSTEM ID: C4ISRnova-SACHATAN-2026 // BUILD 4829-PROD</div>
+          <div>HASH: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855</div>
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+  <!-- =======================================================================
+       SITREP BRIEFING MODAL
+       ======================================================================= -->
+  <div id="sitrep-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md hidden p-4">
+    <div class="w-full max-w-2xl bg-tac-panel border border-emerald-500/50 rounded tactical-corners p-5 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-emerald-500/30 pb-2">
+        <div class="flex items-center gap-2">
+          <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 led-glow-green"></span>
+          <h3 class="text-sm font-bold tracking-wider text-emerald-400 font-display">TACTICAL SITREP TRANSMISSION</h3>
+        </div>
+        <span class="text-[10px] px-2 py-0.5 bg-red-950 text-red-300 border border-red-500/40 font-bold rounded">C4ISRnova INTEL</span>
+      </div>
+
+      <textarea id="sitrep-content" readonly class="w-full h-80 bg-black/80 border border-emerald-500/30 p-3 text-xs text-emerald-300 font-mono rounded resize-none focus:outline-none"></textarea>
+
+      <div class="flex items-center justify-between pt-2">
+        <span class="text-[10px] text-gray-400 font-mono">DEVELOPER: S SACHATAN &bull; ssachatan26@gmail.com</span>
+        <div class="flex items-center gap-2">
+          <button id="btn-copy-sitrep" onclick="copySitrepToClipboard()" class="px-3 py-1.5 tactical-btn text-xs font-bold text-emerald-400 hover:text-white rounded">COPY TO CLIPBOARD</button>
+          <button onclick="closeSitrepModal()" class="px-3 py-1.5 tactical-btn text-xs font-bold text-gray-300 hover:text-white rounded">DISMISS</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCRIPTS -->
+  <script src="js/audio.js"></script>
+  <script src="js/metoc.js"></script>
+  <script src="js/radar.js"></script>
+  <script src="js/tracks.js"></script>
+  <script src="js/weather-app.js"></script>
+  <script src="js/app.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,372 @@
+/* =========================================================================
+   TACTICAL GEOSPATIAL & C4ISR "GOD'S EYE" DASHBOARD
+   Design System: Tactical Military Glassmorphism / NATO Symbology
+   ========================================================================= */
+
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Orbitron:wght@500;700;900&family=Share+Tech+Mono&display=swap');
+
+:root {
+  --bg-primary: #080b11;
+  --bg-panel: rgba(13, 17, 23, 0.88);
+  --bg-panel-elevated: rgba(22, 27, 34, 0.94);
+  --bg-card: rgba(10, 14, 20, 0.75);
+  --bg-glass-hover: rgba(22, 34, 28, 0.85);
+
+  --c-green: #00ff66;
+  --c-green-glow: rgba(0, 255, 102, 0.4);
+  --c-green-dim: rgba(0, 255, 102, 0.15);
+  --c-green-border: rgba(0, 255, 102, 0.3);
+
+  --c-amber: #ffb703;
+  --c-amber-glow: rgba(255, 183, 3, 0.4);
+  --c-amber-dim: rgba(255, 183, 3, 0.15);
+
+  --c-red: #ff3344;
+  --c-red-glow: rgba(255, 51, 68, 0.4);
+  --c-red-dim: rgba(255, 51, 68, 0.15);
+
+  --c-cyan: #00f0ff;
+  --c-cyan-glow: rgba(0, 240, 255, 0.35);
+
+  --font-mono: 'Share Tech Mono', 'JetBrains Mono', monospace;
+  --font-display: 'Orbitron', 'Share Tech Mono', monospace;
+}
+
+/* Base resets & typography */
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background-color: var(--bg-primary);
+  color: #e6edf3;
+  font-family: var(--font-mono);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  user-select: none;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(8, 11, 17, 0.8);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--c-green-border);
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--c-green);
+}
+
+/* =========================================================================
+   OPTICAL SENSOR FILTER MATRICES (Map Container Layer)
+   ========================================================================= */
+
+#map-container {
+  transition: filter 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  background-color: var(--bg-primary);
+}
+
+/* NORMAL SATELLITE MODE */
+.sensor-normal #map {
+  filter: none;
+}
+
+/* NVG (Night Vision Gen-3 Phosphor Green) */
+.sensor-nvg #map {
+  filter: sepia(100%) hue-rotate(85deg) saturate(240%) contrast(145%) brightness(115%);
+}
+
+/* FLIR (White Hot / Thermal Sensor Simulation) */
+.sensor-flir-white #map {
+  filter: grayscale(100%) contrast(210%) invert(100%) brightness(95%);
+}
+
+/* FLIR (Black Hot / High Contrast Thermal) */
+.sensor-flir-black #map {
+  filter: grayscale(100%) contrast(220%) brightness(105%);
+}
+
+/* CRT Scanlines Overlay */
+.crt-overlay {
+  pointer-events: none;
+  background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.45) 50%),
+              linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+  background-size: 100% 3px, 6px 100%;
+  z-index: 25;
+}
+
+/* Vignette overlay */
+.vignette-overlay {
+  pointer-events: none;
+  background: radial-gradient(circle at center, transparent 65%, rgba(0, 0, 0, 0.82) 100%);
+  z-index: 26;
+}
+
+/* NVG Phosphor Bloom Vignette */
+.nvg-bloom-overlay {
+  pointer-events: none;
+  background: radial-gradient(circle at center, rgba(0, 255, 102, 0.06) 0%, rgba(0, 45, 15, 0.35) 75%, rgba(0, 15, 5, 0.85) 100%);
+  box-shadow: inset 0 0 120px rgba(0, 255, 102, 0.25);
+  z-index: 27;
+}
+
+/* =========================================================================
+   TACTICAL CORNERS & GLASSMORPHISM HUD PANELS
+   ========================================================================= */
+
+.tactical-panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--c-green-border);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.75), inset 0 0 15px rgba(0, 255, 102, 0.03);
+  position: relative;
+}
+
+/* Tactical Corner Brackets */
+.tactical-corners {
+  position: relative;
+}
+.tactical-corners::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  width: 8px;
+  height: 8px;
+  border-top: 2px solid var(--c-green);
+  border-left: 2px solid var(--c-green);
+  pointer-events: none;
+}
+.tactical-corners::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  right: -1px;
+  width: 8px;
+  height: 8px;
+  border-bottom: 2px solid var(--c-green);
+  border-right: 2px solid var(--c-green);
+  pointer-events: none;
+}
+
+/* Amber corner variant */
+.tactical-corners-amber::before {
+  border-top-color: var(--c-amber);
+  border-left-color: var(--c-amber);
+}
+.tactical-corners-amber::after {
+  border-bottom-color: var(--c-amber);
+  border-right-color: var(--c-amber);
+}
+
+/* Red alert corner variant */
+.tactical-corners-red::before {
+  border-top-color: var(--c-red);
+  border-left-color: var(--c-red);
+}
+.tactical-corners-red::after {
+  border-bottom-color: var(--c-red);
+  border-right-color: var(--c-red);
+}
+
+/* High-tech button styling */
+.tactical-btn {
+  background: rgba(13, 17, 23, 0.8);
+  border: 1px solid rgba(0, 255, 102, 0.25);
+  color: #c9d1d9;
+  font-family: var(--font-mono);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+.tactical-btn:hover {
+  background: rgba(0, 255, 102, 0.12);
+  border-color: var(--c-green);
+  color: #ffffff;
+  box-shadow: 0 0 12px rgba(0, 255, 102, 0.3);
+}
+.tactical-btn.active {
+  background: rgba(0, 255, 102, 0.22);
+  border-color: var(--c-green);
+  color: var(--c-green);
+  box-shadow: 0 0 16px rgba(0, 255, 102, 0.4), inset 0 0 8px rgba(0, 255, 102, 0.2);
+}
+
+/* Scan sector CTA button */
+.btn-scan-sector {
+  background: linear-gradient(135deg, rgba(0, 255, 102, 0.2) 0%, rgba(0, 200, 80, 0.1) 100%);
+  border: 1px solid var(--c-green);
+  box-shadow: 0 0 20px rgba(0, 255, 102, 0.25);
+  transition: all 0.25s ease;
+}
+.btn-scan-sector:hover {
+  background: linear-gradient(135deg, rgba(0, 255, 102, 0.35) 0%, rgba(0, 220, 90, 0.2) 100%);
+  box-shadow: 0 0 30px rgba(0, 255, 102, 0.45);
+  transform: translateY(-1px);
+}
+.btn-scan-sector:active {
+  transform: translateY(0);
+}
+
+/* Status LEDs */
+.led-glow-green {
+  box-shadow: 0 0 8px var(--c-green), 0 0 16px var(--c-green-glow);
+}
+.led-glow-amber {
+  box-shadow: 0 0 8px var(--c-amber), 0 0 16px var(--c-amber-glow);
+}
+.led-glow-red {
+  box-shadow: 0 0 8px var(--c-red), 0 0 16px var(--c-red-glow);
+}
+
+/* =========================================================================
+   CENTER HUD RETICLE ("GOD'S EYE" ISR OVERLAY)
+   ========================================================================= */
+
+.hud-reticle-container {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 20;
+}
+
+/* Slow rotation animation for tactical azimuth ring */
+@keyframes hud-radar-sweep {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.hud-ring-rotate {
+  animation: hud-radar-sweep 40s linear infinite;
+  transform-origin: center;
+}
+
+/* Pulse animation for targeting reticle center */
+@keyframes hud-reticle-pulse {
+  0%, 100% { opacity: 0.85; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.02); }
+}
+
+.hud-pulse {
+  animation: hud-reticle-pulse 3s ease-in-out infinite;
+}
+
+/* =========================================================================
+   ANIMATED TARGET PIN & RANGE RINGS
+   ========================================================================= */
+
+@keyframes tactical-pulse-ring {
+  0% {
+    transform: scale(0.6);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+
+.tactical-target-marker {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  pointer-events: none;
+}
+.tactical-target-marker .ring-pulse {
+  position: absolute;
+  inset: -6px;
+  border: 2px solid var(--c-green);
+  border-radius: 50%;
+  animation: tactical-pulse-ring 2s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
+}
+
+/* Leaflet Customizations */
+.leaflet-container {
+  background-color: var(--bg-primary) !important;
+  font-family: var(--font-mono) !important;
+}
+
+.leaflet-control-attribution {
+  display: none !important;
+}
+
+/* Tactical Leaflet Tooltips & Popups */
+.leaflet-popup-content-wrapper {
+  background: var(--bg-panel-elevated) !important;
+  color: #e6edf3 !important;
+  border: 1px solid var(--c-green-border) !important;
+  border-radius: 2px !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.85) !important;
+  font-family: var(--font-mono) !important;
+  font-size: 11px !important;
+  padding: 0 !important;
+}
+.leaflet-popup-content {
+  margin: 10px 14px !important;
+  line-height: 1.5 !important;
+}
+.leaflet-popup-tip {
+  background: var(--bg-panel-elevated) !important;
+  border: 1px solid var(--c-green-border) !important;
+}
+
+/* Rotating Compass Needle */
+.compass-needle {
+  transition: transform 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transform-origin: center center;
+}
+
+/* Blinking Telemetry Cursor / Light */
+@keyframes blink-fast {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.2; }
+}
+.animate-blink {
+  animation: blink-fast 1s steps(2, start) infinite;
+}
+
+/* =========================================================================
+   CLEAN WEATHER APP STYLES & DEVELOPER DOSSIER
+   ========================================================================= */
+
+.weather-scroll-strip::-webkit-scrollbar {
+  height: 5px;
+}
+.weather-scroll-strip::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 4px;
+}
+.weather-scroll-strip::-webkit-scrollbar-thumb {
+  background: var(--c-green-border);
+  border-radius: 4px;
+}
+.weather-scroll-strip::-webkit-scrollbar-thumb:hover {
+  background: var(--c-green);
+}
+
+/* Nav Tab Button */
+.nav-tab-btn {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  font-family: var(--font-mono);
+}
+.nav-tab-btn.active {
+  background: rgba(0, 255, 102, 0.18);
+  border-color: var(--c-green) !important;
+  color: var(--c-green) !important;
+  box-shadow: 0 0 14px rgba(0, 255, 102, 0.35);
+}
+
+/* Developer card glow */
+.dev-card-glow {
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8), 0 0 25px rgba(0, 255, 102, 0.12);
+}
+
